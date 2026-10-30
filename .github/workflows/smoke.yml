@@ -59,9 +59,16 @@ jobs:
         run: |
           python - <<'PY'
           import pathlib, sys
+          # 只查文本文件。二进制（png 等）里出现 \r\n 是正常的字节组合，
+          # 按全量扫会把 logo.png 误判成 CRLF 文件。
+          TEXT = {".py", ".md", ".json", ".yaml", ".yml", ".txt",
+                  ".toml", ".cfg", ".ini", ".sh"}
+          EXTRA = {".gitignore", ".gitattributes"}
           bad = []
           for p in pathlib.Path(".").rglob("*"):
-              if not p.is_file() or ".git" in p.parts or p.suffix == ".pyc":
+              if not p.is_file() or ".git" in p.parts:
+                  continue
+              if p.suffix.lower() not in TEXT and p.name.lower() not in EXTRA:
                   continue
               if b"\r\n" in p.read_bytes():
                   bad.append(str(p))
