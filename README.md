@@ -5,7 +5,7 @@
 [![回归测试](https://github.com/Percent-51/astrbot_plugin_group_economy/actions/workflows/smoke.yml/badge.svg)](https://github.com/Percent-51/astrbot_plugin_group_economy/actions/workflows/smoke.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-364%20assertions-brightgreen)
+![Tests](https://img.shields.io/badge/tests-367%20assertions-brightgreen)
 
 **堡贝**（bǎo bèi）是本插件里唯一流通的货币。它没有任何现实价值，但只要群里有第二个人在乎它，这套体系就能把一群潜水的人拽出来说话。
 
@@ -39,6 +39,20 @@
 - **罚**：高利贷逾期先扣存款再扣现金，欠债的人发不出红包
 
 **闭环的意义**：币少了想赚，币多了想赌，赌输了想借，借了要还——每个环节都在制造下一句话的理由。
+
+## 长什么样
+
+<p align="center">
+  <img src="docs/images/demo-money.png" width="620" alt="金钱流转示例">
+</p>
+
+<p align="center">
+  <img src="docs/images/demo-games.png" width="620" alt="玩法示例">
+</p>
+
+> 上图是**示例输出**：文字由插件真实运行产生（一个字没改），只是排版成了卡片。
+> 没有放「群聊实拍」，因为本插件的指令是裸指令，跟作者线上在跑的另一个插件冲突，
+> 不便为了截图去动生产环境。
 
 ---
 
@@ -179,6 +193,31 @@ git clone https://github.com/Percent-51/astrbot_plugin_group_economy.git
 
 ---
 
+## 目录结构
+
+```
+astrbot_plugin_group_economy/
+├── main.py              路由：解析指令 → 分发到 core / games
+├── core/
+│   ├── store.py         单文件 JSON + 原子写 + 协程锁
+│   ├── wallet.py        双轨记账（earn / add / spend / debit / credit）
+│   ├── bank.py          存款 / 信用贷 / 地下钱庄 / 懒结算
+│   ├── redpacket.py     拼手气红包
+│   ├── content.py       题库加载（带缓存与多编码回退）
+│   ├── llm.py           LLM 唯一入口，拿不到 provider 就降级
+│   └── utils.py         北京时间与展示格式化
+├── games/
+│   ├── lottery.py       刮刮乐 + 每日幸运号
+│   ├── bomb.py          全群猜数字
+│   ├── guess.py         一起猜猜猜
+│   ├── soup.py          海龟汤
+│   ├── story.py         故事接龙
+│   └── theater.py       小剧场
+├── data/                words.json / soups.json —— 改题库不用碰代码
+├── docs/                设计说明.md + images/
+└── tests/               5 份回归，共 367 条断言
+```
+
 ## 测试
 
 ```bash
@@ -186,7 +225,7 @@ python tests/冒烟回归.py   # 内核：存储 / 钱包 / 时间格式化    4
 python tests/银行回归.py   # 利息 / 逾期 / 复利 / 信用分 / 破产  86 条
 python tests/红包回归.py   # 金额守恒 / 过期退款 / 套现锁       47 条
 python tests/游戏回归.py   # 赔率 / 分账 / 退款                 79 条
-python tests/装载回归.py   # 假 AstrBot 端到端跑一遍每条指令    108 条
+python tests/装载回归.py   # 假 AstrBot 端到端跑一遍每条指令    111 条
 ```
 
 零依赖、不需要装 AstrBot，普通 `python` 直接跑。CI 在 3.10 / 3.12 两个版本上各跑一遍。

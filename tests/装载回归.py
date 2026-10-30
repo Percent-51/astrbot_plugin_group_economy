@@ -251,6 +251,13 @@ for text, label in cases:
 # 私聊也能用（没有群号时用固定桶承载）
 check("私聊可用", bool(asyncio.run(ask("钱包", gid=""))))
 
+# 只发「银行」两个字时应该给账户，不是用法说明
+bank_only = asyncio.run(ask("银行"))
+check("银行空参数给账户总览", "档位" in bank_only and "存款" in bank_only, bank_only[:40])
+check("银行空参数不给用法说明", "支持：" not in bank_only, bank_only[:40])
+check("看不懂的参数才给用法", "支持：" in asyncio.run(ask("银行 乱七八糟")),
+      asyncio.run(ask("银行 乱七八糟"))[:30])
+
 # 重复签到只给一次钱
 first = asyncio.run(ask("签到"))
 second = asyncio.run(ask("签到"))

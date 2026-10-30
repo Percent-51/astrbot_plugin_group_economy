@@ -203,6 +203,12 @@ class GroupEconomyPlugin(Star):
         u = self.store.user(gid, uid, name)
         w = Wallet(u, self.daily_cap)
         bank = Bank(u, self.store.group(gid), w)
+        # 只发「银行」两个字时，人想看的是账户，不是用法说明。
+        # 用法说明留给真正看不懂的输入（比如「银行 乱七八糟」）。
+        if not str(arg or "").strip():
+            notes = bank.settle()
+            body = bank.account_text()
+            return ("\n".join(notes) + "\n" + body) if notes else body
         parsed = parse_command(arg)
         if parsed is None:
             bank.settle()
