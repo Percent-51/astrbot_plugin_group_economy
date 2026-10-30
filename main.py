@@ -26,6 +26,7 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star, StarTools, register
 
 from .core import utils
+from .core.bank import USAGE_TEXT, Bank, parse_command
 from .core.store import Store
 from .core.wallet import Wallet, total_wealth
 
@@ -139,33 +140,72 @@ class GroupEconomyPlugin(Star):
     def _cmd_wallet(self, gid: str, uid: str, name: str) -> str:
         u = self.store.user(gid, uid, name)
         w = Wallet(u, self.daily_cap)
-        bank = u.get("bank") or {}
-        dep = int(bank.get("dep", 0) or 0)
+        bank = Bank(u, self.store.group(gid), w)
+        bank.settle()
+        state = u.get("bank") or {}
+        dep = int(state.get("dep", 0) or 0)
+        tier = bank.tier
         lines = [
             f"💰 {name or uid} 的账户",
             f"现金：{utils.fmt_coins(w.coins)} 堡贝",
             f"存款：{utils.fmt_coins(dep)} 堡贝",
             f"总资产：{utils.fmt_coins(total_wealth(u))} 堡贝",
+            f"信用：{bank.credit}（{tier['label']}，可借 {tier['loan_cap']}）",
         ]
+        if bank.locked():
+            lines.append(f"⚠️ {bank.locked()}未结清，暂时不能发红包")
         if self.daily_cap > 0:
             lines.append(f"今日已赚：{w.earned_today} / {self.daily_cap}")
         return "\n".join(lines)
 
     def _cmd_checkin(self, gid: str, uid: str, name: str) -> str:
         u = self.store.user(gid, uid, name)
+        w = Wallet(u, self.daily_cap)
+        # 签到是群里最稳定的「每日触点」，顺手把利息/逾期算掉。
+        # 单独挂定时器在容器重启时会漏跑，而漏跑的利息玩家会认为被吞了。
+        notes = Bank(u, self.store.group(gid), w).settle(from_checkin=True)
         day = utils.today()
         daily = u.setdefault("daily", {})
         if str(daily.get("checkin_day") or "") == day:
-            now_coins = Wallet(u, self.daily_cap).coins
-            return f"今天已经签到过了，明天再来喵。\n账上 {now_coins} 堡贝还在。"
-        daily["checkin_day"] = day
+            body = f"今天已经签到过了，明天再来喵。\n账上 {w.coins} 堡贝还在。"
+        else:
+            daily["checkin_day"] = day
+            granted, capped = w.earn(self.checkin_reward)
+            tail = f"（今日已达上限，只到账 {granted}）" if capped else ""
+            body = f"📅 签到成功{tail}\n+{granted} 堡贝　当前 {w.coins} 堡贝"
+        if notes:
+            body = body + "\n" + "\n".join(notes)
+        return body
+
+    def _cmd_bank(self, gid: str, uid: str, name: str, arg: str) -> str:
+        u = self.store.user(gid, uid, name)
         w = Wallet(u, self.daily_cap)
-        granted, capped = w.earn(self.checkin_reward)
-        tail = f"（今日已达上限，只到账 {granted}）" if capped else ""
-        return (
-            f"📅 签到成功{tail}\n"
-            f"+{granted} 堡贝　当前 {w.coins} 堡贝"
-        )
+        bank = Bank(u, self.store.group(gid), w)
+        parsed = parse_command(arg)
+        if parsed is None:
+            bank.settle()
+            return USAGE_TEXT
+        action, value = parsed
+        if action == "rules":
+            return Bank.rules_text()
+        # 所有银行操作都先结息再动账：否则「先还 100 再借 100」会绕过一段利息
+        notes = bank.settle()
+        if value < 0:
+            return "这个金额小堡看不懂喵，直接给个数字就行～"
+        if action == "account":
+            body = bank.account_text()
+        else:
+            body = {
+                "deposit": bank.deposit,
+                "withdraw": bank.withdraw,
+                "borrow": bank.borrow,
+                "repay": bank.repay,
+                "borrow_shark": bank.borrow_shark,
+                "repay_shark": bank.repay_shark,
+            }[action](value)
+        if notes:
+            return "\n".join(notes) + "\n" + body
+        return body
 
     def _cmd_rank(self, gid: str) -> str:
         g = self.store.group(gid)
@@ -214,8 +254,12 @@ class GroupEconomyPlugin(Star):
         try:
             if cmd == "经济":
                 text = _menu_text()
+            elif cmd == "银行":
+                async with self.store.transaction():
+                    text = self._cmd_bank(gid, uid, name, arg)
             elif cmd == "钱包":
-                text = self._cmd_wallet(gid, uid, name)
+                async with self.store.transaction():
+                    text = self._cmd_wallet(gid, uid, name)
             elif cmd == "排行":
                 text = self._cmd_rank(gid)
             elif cmd == "签到":

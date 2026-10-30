@@ -114,6 +114,31 @@ class Wallet:
         self._bump_stat("spent", taken)
         return taken
 
+    def debit(self, amount: int) -> int:
+        """把现金挪进内部账本（存款 / 还款）。
+
+        和 `spend()` 的区别是**钱没有消失**，只是换了个口袋，所以不计入
+        `stats.spent`。如果这里记成支出，玩家的「总支出」会虚高一大截。
+        """
+        amount = max(0, int(amount))
+        if amount <= 0:
+            return 0
+        moved = min(self.coins, amount)
+        self.user["coins"] = self.coins - moved
+        return moved
+
+    def credit(self, amount: int) -> int:
+        """从内部账本挪回现金（取款 / 放款）。
+
+        不计入 `earned`：放款不是系统发钱，是负债换来的现金，
+        要是算进每日上限，借 3000 会被截成几百，贷款就废了。
+        """
+        amount = max(0, int(amount))
+        if amount <= 0:
+            return 0
+        self.user["coins"] = self.coins + amount
+        return amount
+
     # -------------------------------------------------------------- 破产 --
     def mark_bankrupt(self) -> int:
         """记一次破产（余额归零且资不抵债时由银行调用）。返回累计次数。"""
@@ -127,11 +152,18 @@ class Wallet:
 
 
 def total_wealth(user: dict[str, Any]) -> int:
-    """总资产 = 现金 + 存款 − 欠款。用于排行榜与破产判定。"""
+    """总资产 = 现金 + 存款 − 负债。用于排行榜与破产判定。
+
+    负债要把普通贷款和地下钱庄都算上，否则借了高利贷的人会凭「现金变多」
+    冲到榜首。
+    """
     bank = user.get("bank") or {}
     dep = int(bank.get("dep", 0) or 0)
-    loan = bank.get("loan") or {}
     debt = 0
-    if isinstance(loan, dict) and loan:
-        debt = int(loan.get("principal", 0) or 0) + int(loan.get("interest", 0) or 0)
+    for key in ("loan", "shark"):
+        item = bank.get(key)
+        if isinstance(item, dict) and item:
+            # `interest` 是老字段名，保留兼容
+            debt += int(item.get("principal", 0) or 0)
+            debt += int(item.get("accrued", item.get("interest", 0)) or 0)
     return int(user.get("coins", 0) or 0) + dep - debt

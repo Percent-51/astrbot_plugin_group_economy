@@ -26,6 +26,11 @@ def ts() -> int:
     return int(now().timestamp())
 
 
+def day_of(timestamp: float) -> str:
+    """时间戳 → 「MM-DD」。给「X 月 X 日前还清」这类文案用。"""
+    return datetime.fromtimestamp(float(timestamp), TZ).strftime("%m-%d")
+
+
 def fmt_coins(n: int) -> str:
     """堡贝展示：三档量级用不同单位，避免长串数字看不清。"""
     n = int(n or 0)

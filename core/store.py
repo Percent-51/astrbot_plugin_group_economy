@@ -77,9 +77,10 @@ def blank_user(name: str = "") -> dict[str, Any]:
         "bank": {
             "dep": 0,
             "dep_ts": 0,
-            "loan": {},
+            "loan": None,
+            "shark": None,
             "history": [],
-            "coupon": 1,
+            "coupon": True,
             "first_dep": False,
         },
         "stats": {
