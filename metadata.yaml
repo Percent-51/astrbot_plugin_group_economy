@@ -8,6 +8,8 @@ desc: >-
 version: v1.0.0
 author: "Percent-51"
 repo: https://github.com/Percent-51/astrbot_plugin_group_economy
+logo: logo.png
+social_link: https://github.com/Percent-51
 support_platforms:
   - aiocqhttp
   - telegram
