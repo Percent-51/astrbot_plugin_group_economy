@@ -1,0 +1,18 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 运行期产生的存档（题库与词库要提交，运行数据不要）
+data/*.json
+!data/words.json
+!data/soups.json
+*.tmp
+*.bak-*
+
+# 编辑器
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

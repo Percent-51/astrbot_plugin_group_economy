@@ -1,0 +1,20 @@
+{
+  "daily_cap": {
+    "type": "int",
+    "description": "每日堡贝获取上限",
+    "hint": "群友一天最多能「赚」多少堡贝（签到、游戏奖励都算）。填 0 表示不限制。注意这只管赚钱，红包、彩票赔付这类群友之间的搬钱不计入。",
+    "default": 300
+  },
+  "initial_coins": {
+    "type": "int",
+    "description": "新用户初始堡贝",
+    "hint": "第一次发言时自动发的启动资金。填 0 表示从零开始，靠签到慢慢攒。",
+    "default": 500
+  },
+  "checkin_reward": {
+    "type": "int",
+    "description": "每日签到奖励",
+    "hint": "每天第一次发「签到」拿到的堡贝，受上面的每日上限约束。",
+    "default": 50
+  }
+}
