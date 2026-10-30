@@ -5,7 +5,7 @@
 [![回归测试](https://github.com/Percent-51/astrbot_plugin_group_economy/actions/workflows/smoke.yml/badge.svg)](https://github.com/Percent-51/astrbot_plugin_group_economy/actions/workflows/smoke.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-359%20assertions-brightgreen)
+![Tests](https://img.shields.io/badge/tests-364%20assertions-brightgreen)
 
 **堡贝**（bǎo bèi）是本插件里唯一流通的货币。它没有任何现实价值，但只要群里有第二个人在乎它，这套体系就能把一群潜水的人拽出来说话。
 
@@ -183,7 +183,7 @@ git clone https://github.com/Percent-51/astrbot_plugin_group_economy.git
 
 ```bash
 python tests/冒烟回归.py   # 内核：存储 / 钱包 / 时间格式化    44 条
-python tests/银行回归.py   # 利息 / 逾期 / 复利 / 信用分        81 条
+python tests/银行回归.py   # 利息 / 逾期 / 复利 / 信用分 / 破产  86 条
 python tests/红包回归.py   # 金额守恒 / 过期退款 / 套现锁       47 条
 python tests/游戏回归.py   # 赔率 / 分账 / 退款                 79 条
 python tests/装载回归.py   # 假 AstrBot 端到端跑一遍每条指令    108 条

@@ -174,6 +174,8 @@ class GroupEconomyPlugin(Star):
         ]
         if bank.locked():
             lines.append(f"⚠️ {bank.locked()}未结清，暂时不能发红包")
+        if w.bankrupt_times:
+            lines.append(f"🪦 破产记录：{w.bankrupt_times} 次")
         if self.daily_cap > 0:
             lines.append(f"今日已赚：{w.earned_today} / {self.daily_cap}")
         return "\n".join(lines)
@@ -241,13 +243,15 @@ class GroupEconomyPlugin(Star):
         for i, (uid, u) in enumerate(rows[:10], 1):
             nm = str(u.get("name") or uid)
             lines.append(f"{i}. {nm}　{utils.fmt_coins(total_wealth(u))} 堡贝")
-        broke = [u for _, u in rows if int((u.get("stats") or {}).get("bankrupt", 0) or 0) > 0]
+        # 负债榜按当前总资产结算，而不是靠一个「破产」计数器——
+        # 计数器要有人去 +1 才有值，漏一处就是永远空榜。算出来的榜单不会骗人。
+        broke = [u for _, u in rows if total_wealth(u) < 0]
         if broke:
             lines.append("")
-            lines.append("🪦 破产榜")
+            lines.append("🪦 负债榜（总资产为负）")
             for u in broke[:5]:
-                n = int((u.get("stats") or {}).get("bankrupt", 0) or 0)
-                lines.append(f"· {u.get('name') or '匿名'}　破产 {n} 次")
+                lines.append(f"· {u.get('name') or '匿名'}　"
+                             f"{utils.fmt_coins(total_wealth(u))} 堡贝")
         return "\n".join(lines)
 
     # -------------------------------------------------------------- 玩法 --

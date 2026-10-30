@@ -283,6 +283,12 @@ class Bank:
             owed = p + acc
             dep = int(bank.get("dep", 0) or 0)
             pay = min(owed, dep + self.w.coins)
+            if pay <= 0 and dep + self.w.coins <= 0 and not shark.get("broke_marked"):
+                # 一分钱都扣不出来：记一次破产。加标记是为了别每次结算都记一次
+                shark["broke_marked"] = True
+                times = self.w.mark_bankrupt()
+                self._bump_credit(-CREDIT_BANKRUPT)
+                notes.append(f"🪦 已记为破产第 {times} 次——账上一分钱都划不出来了")
             if pay > 0:
                 pay_dep = min(dep, pay)
                 bank["dep"] = dep - pay_dep

@@ -319,6 +319,31 @@ check("空 dict 贷款被清理", u["bank"]["loan"] is None, u["bank"]["loan"])
 check("coupon 数字 1 转布尔", u["bank"]["coupon"] is True, u["bank"]["coupon"])
 check("无 credit 字段时按默认值", b.credit == DEFAULT_CREDIT, b.credit)
 
+# ------------------------------------------------------------------ 破产 --
+section("破产")
+
+b, u, g, w = make(0)
+u["coins"] = 0
+u["bank"].update({"dep": 0, "shark": {
+    "principal": 1000, "accrued": 0, "start_ts": utils.ts() - 5 * 86400,
+    "due_ts": utils.ts() - 3600, "ts": utils.ts(),
+    "overdue": False, "fold_day": str(utils.now().date()),
+}})
+notes = b.settle()
+check("划不出钱时记破产", w.bankrupt_times == 1, w.bankrupt_times)
+check("破产有播报", any("破产" in n for n in notes), notes)
+check("破产会扣信用分", b.credit == 0, b.credit)      # 60 -20 逾期 -60 破产，被夹到 0
+check("破产不重复记", (b.settle(), w.bankrupt_times)[1] == 1, w.bankrupt_times)
+
+b, u, g, w = make(0)
+u["bank"].update({"dep": 500, "shark": {
+    "principal": 1000, "accrued": 0, "start_ts": utils.ts() - 5 * 86400,
+    "due_ts": utils.ts() - 3600, "ts": utils.ts(),
+    "overdue": False, "fold_day": str(utils.now().date()),
+}})
+b.settle()
+check("还得起就不算破产", w.bankrupt_times == 0, w.bankrupt_times)
+
 # ------------------------------------------------------------------ 汇总 --
 print()
 if FAIL:
