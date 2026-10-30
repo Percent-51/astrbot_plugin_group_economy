@@ -27,11 +27,19 @@ from astrbot.api.star import Context, Star, StarTools, register
 
 from .core import utils
 from .core.bank import USAGE_TEXT, Bank, parse_command
+from .core.llm import make_caller
+from .core.redpacket import RedPacket
 from .core.store import Store
 from .core.wallet import Wallet, total_wealth
+from .games.bomb import Bomb
+from .games.guess import Guess
+from .games.lottery import Lottery
+from .games.soup import Soup
+from .games.story import Story
+from .games.theater import Theater
 
 PLUGIN_NAME = "astrbot_plugin_group_economy"
-VERSION = "v0.1.0"
+VERSION = "v1.0.0"
 
 DEFAULT_COINS = 500
 DEFAULT_DAILY_CAP = 300
@@ -41,8 +49,10 @@ CHECKIN_REWARD = 50
 ALIASES: dict[str, str] = {
     "堡贝": "钱包", "堡币": "钱包", "余额": "钱包", "我的堡贝": "钱包",
     "经济菜单": "经济", "经济帮助": "经济", "玩法": "经济",
+    "帮助": "经济", "菜单": "经济", "help": "经济",
     "每日签到": "签到", "打卡": "签到",
     "银行": "银行", "小堡银行": "银行", "存钱": "银行", "取钱": "银行",
+    "红包": "红包", "抢红包": "红包", "发红包": "红包", "塞红包": "红包",
     "彩票": "彩票", "刮刮乐": "彩票",
     "炸弹": "炸弹", "小堡炸弹": "炸弹",
     "接龙": "故事接龙", "故事接龙": "故事接龙",
@@ -53,7 +63,7 @@ ALIASES: dict[str, str] = {
 
 SUPPORTED = {
     "经济", "钱包", "签到", "排行",
-    "银行", "彩票", "炸弹", "故事接龙", "小堡剧场", "一起猜猜猜", "海龟汤",
+    "银行", "红包", "彩票", "炸弹", "故事接龙", "小堡剧场", "一起猜猜猜", "海龟汤",
 }
 
 
@@ -61,21 +71,29 @@ def _menu_text() -> str:
     return (
         "🏦 群聊经济体系\n"
         "────────────────\n"
-        "💰 堡贝　　查余额\n"
-        "📅 签到　　每天领 50 堡贝\n"
-        "🏦 银行　　存钱吃利息 / 借钱 / 高利贷\n"
-        "🎰 彩票　　刮刮乐 · 每日幸运号\n"
-        "💣 炸弹　　扫雷局，踩雷的人赔钱\n"
-        "📖 故事接龙　全群一人一句编故事\n"
-        "🎭 小堡剧场　丢个主题，现场编群聊\n"
+        "💰 堡贝　　　　查余额 / 信用 / 存款\n"
+        f"📅 签到　　　　每天领 {CHECKIN_REWARD} 堡贝\n"
+        "🏦 银行　　　　存款吃息 / 信用贷 / 高利贷\n"
+        "🧧 红包　　　　拼手气，抢到手软\n"
+        "🎰 彩票　　　　刮刮乐 · 每日幸运号\n"
+        "💣 炸弹　　　　猜数字，踩雷的人赔钱\n"
+        "📖 故事接龙　　全群一人一句编故事\n"
+        "🎭 小堡剧场　　丢个主题，现场编短剧\n"
         "🎯 一起猜猜猜　猜一个藏起来的词\n"
-        "🍲 海龟汤　　只问是/否，盘出真相\n"
-        "🏆 排行　　　　存钱榜 / 破产榜\n"
+        "🍲 海龟汤　　　只问是/否，盘出真相\n"
+        "🏆 排行　　　　财富榜 / 破产榜\n"
         "────────────────\n"
+        "每条玩法都能加「规则」看细节，比如「银行 规则」。\n"
         "堡贝是本插件内的货币，与任何其他插件不互通。"
     )
 
 
+@register(
+    PLUGIN_NAME,
+    "Percent-51",
+    "群聊经济体系：堡贝货币 + 银行存贷 + 红包 + 彩票 + 五种群游戏",
+    VERSION,
+)
 class GroupEconomyPlugin(Star):
     def __init__(self, context: Context, config: "AstrBotConfig | dict | None" = None):
         super().__init__(context)
@@ -85,6 +103,8 @@ class GroupEconomyPlugin(Star):
         self.store = Store(self.data_dir / "economy.json", initial_coins=self.initial_coins)
         self._boot = asyncio.Event()
         self._boot_task: asyncio.Task | None = None
+        # 没配模型时 make_caller 返回 None，需要 LLM 的玩法自行降级
+        self.llm = make_caller(context)
         try:
             self._boot_task = asyncio.create_task(self._startup())
         except RuntimeError:
@@ -230,6 +250,28 @@ class GroupEconomyPlugin(Star):
                 lines.append(f"· {u.get('name') or '匿名'}　破产 {n} 次")
         return "\n".join(lines)
 
+    # -------------------------------------------------------------- 玩法 --
+    def _game(self, cmd: str, gid: str, uid: str, name: str):
+        """按命令名造出对应的玩法对象。所有玩法共享同一套 user/group/wallet。"""
+        u = self.store.user(gid, uid, name)
+        g = self.store.group(gid)
+        w = Wallet(u, self.daily_cap)
+        if cmd == "彩票":
+            return Lottery(u, g, w, uid)
+        if cmd == "炸弹":
+            return Bomb(u, g, w, uid)
+        if cmd == "故事接龙":
+            return Story(u, g, w, uid)
+        if cmd == "一起猜猜猜":
+            return Guess(u, g, w, uid)
+        if cmd == "红包":
+            return RedPacket(u, g, w, uid)
+        if cmd == "海龟汤":
+            return Soup(u, g, w, uid, self.llm)
+        if cmd == "小堡剧场":
+            return Theater(u, g, w, uid, self.llm)
+        raise KeyError(cmd)
+
     # -------------------------------------------------------------- 事件入口 --
     @filter.event_message_type(
         filter.EventMessageType.GROUP_MESSAGE | filter.EventMessageType.PRIVATE_MESSAGE,
@@ -266,8 +308,8 @@ class GroupEconomyPlugin(Star):
                 async with self.store.transaction():
                     text = self._cmd_checkin(gid, uid, name)
             else:
-                # 其余交给 games 层；本版尚未接入，先给明确回执而不是静默
-                text = f"「{cmd}」这个玩法还在接，先记着喵。"
+                async with self.store.transaction():
+                    text = await self._game(cmd, gid, uid, name).handle(arg)
             event.stop_event()
             yield event.plain_result(text)
         except Exception as exc:

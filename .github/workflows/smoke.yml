@@ -1,4 +1,4 @@
-name: 冒烟回归
+name: 回归测试
 
 on:
   push:
@@ -7,20 +7,66 @@ on:
   workflow_dispatch:
 
 jobs:
-  smoke:
+  test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 插件跑在 AstrBot 容器里，实际 Python 版本取决于镜像；
+        # 这里上下各测一档，避免用了新版语法导致旧镜像起不来。
+        python-version: ["3.10", "3.12"]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
 
       - name: 语法检查
         run: python -m py_compile main.py core/*.py games/*.py
 
-      - name: 冒烟回归
+      - name: 配置文件校验
+        run: |
+          python - <<'PY'
+          import json, pathlib, sys
+          for name in ("_conf_schema.json", "data/words.json", "data/soups.json"):
+              path = pathlib.Path(name)
+              data = json.loads(path.read_text(encoding="utf-8"))
+              print(f"{name}: ok ({path.stat().st_size} bytes)")
+          # 题库是内容资产，数量掉了通常意味着导出时被截断
+          words = json.loads(pathlib.Path("data/words.json").read_text(encoding="utf-8"))
+          soups = json.loads(pathlib.Path("data/soups.json").read_text(encoding="utf-8"))
+          assert len(words["words"]) > 2000, len(words["words"])
+          assert len(soups["puzzles"]) > 500, len(soups["puzzles"])
+          PY
+
+      - name: 内核回归
         run: python tests/冒烟回归.py
 
-      - name: 配置校验
-        run: python -c "import json; json.load(open('_conf_schema.json', encoding='utf-8'))"
+      - name: 银行回归
+        run: python tests/银行回归.py
+
+      - name: 红包回归
+        run: python tests/红包回归.py
+
+      - name: 玩法回归
+        run: python tests/游戏回归.py
+
+      - name: 装载回归（假 AstrBot 端到端）
+        run: python tests/装载回归.py
+
+      - name: 行尾检查（不允许 CRLF）
+        run: |
+          python - <<'PY'
+          import pathlib, sys
+          bad = []
+          for p in pathlib.Path(".").rglob("*"):
+              if not p.is_file() or ".git" in p.parts or p.suffix == ".pyc":
+                  continue
+              if b"\r\n" in p.read_bytes():
+                  bad.append(str(p))
+          if bad:
+              print("发现 CRLF 文件：", bad)
+              sys.exit(1)
+          print("全部 LF")
+          PY

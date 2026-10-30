@@ -1,10 +1,21 @@
-name: group_economy
+name: astrbot_plugin_group_economy
 display_name: 群聊经济体系
-short_desc: 堡贝货币 + 银行存贷 + 一堆能赚能花的群聊小游戏
-desc: 群聊经济体系 · 堡贝计价（银行存贷 / 高利贷 / 红包 / 彩票 / 炸弹 / 接龙 / 剧场 / 猜猜猜 / 海龟汤）
-version: v0.1.0
+short_desc: 堡贝货币 + 银行存贷 + 红包 + 彩票 + 一群能赚能花的群聊小游戏
+desc: >-
+  一个完整闭环的群聊经济体系。堡贝是群内唯一货币：签到和游戏赚它，
+  银行存它、借它、还不上就被高利贷收走。内置银行（存贷 / 信用分 / 地下钱庄）、
+  拼手气红包、彩票（刮刮乐 + 每日幸运号）、炸弹、故事接龙、猜猜猜、海龟汤、小剧场。
+version: v1.0.0
 author: "Percent-51"
 repo: https://github.com/Percent-51/astrbot_plugin_group_economy
 support_platforms:
   - aiocqhttp
+  - telegram
+  - qq_official
 astrbot_version: ">=4.5,<5"
+tags:
+  - 经济系统
+  - 群聊游戏
+  - 银行
+  - 小游戏
+  - 货币
